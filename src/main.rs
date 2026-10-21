@@ -279,8 +279,8 @@ impl App {
 
         let dst_w = (src_w as f64 * scale).round() as u32;
         let dst_h = (src_h as f64 * scale).round() as u32;
-        let offset_x = (size.width - dst_w) / 2;
-        let offset_y = (size.height - dst_h) / 2;
+        let offset_x = (size.width as i64 - dst_w as i64) / 2;
+        let offset_y = (size.height as i64 - dst_h as i64) / 2;
 
         if self.verbose {
             eprintln!(
@@ -290,13 +290,23 @@ impl App {
         }
 
         for y in 0..dst_h {
+            let dest_y = offset_y + y as i64;
+            if dest_y < 0 || dest_y >= size.height as i64 {
+                continue;
+            }
+
             let sy = (y as u64 * src_h as u64 / dst_h as u64) as u32;
 
             for x in 0..dst_w {
+                let dest_x = offset_x + x as i64;
+                if dest_x < 0 || dest_x >= size.width as i64 {
+                    continue;
+                }
+
                 let sx = (x as u64 * src_w as u64 / dst_w as u64) as u32;
                 let pixel = rgba.get_pixel(sx, sy);
 
-                let index = ((offset_y + y) * size.width + offset_x + x) as usize;
+                let index = (dest_y as u32 * size.width + dest_x as u32) as usize;
                 buffer[index] =
                     ((pixel[0] as u32) << 16) | ((pixel[1] as u32) << 8) | pixel[2] as u32;
             }
