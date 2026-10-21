@@ -14,6 +14,7 @@ struct App {
     image: Option<image::DynamicImage>,
     images: Vec<PathBuf>,
     image_index: usize,
+    zoom: f64,
     verbose: bool,
     fullscreen: bool,
 }
@@ -26,6 +27,7 @@ impl App {
             image: None,
             images: Vec::new(),
             image_index: 0,
+            zoom: 1.0,
             verbose: false,
             fullscreen: false,
         }
@@ -73,9 +75,13 @@ impl App {
             }
             KeyCode::Space => self.toggle_fullscreen(),
             KeyCode::Digit0 | KeyCode::Numpad0 => {
-                if let Some(window) = self.window {
-                    window.request_redraw();
-                }
+                self.reset_view();
+            }
+            KeyCode::Equal | KeyCode::NumpadAdd => {
+                self.zoom_by(1.25);
+            }
+            KeyCode::Minus | KeyCode::NumpadSubtract => {
+                self.zoom_by(0.8);
             }
             KeyCode::ArrowRight | KeyCode::ArrowDown | KeyCode::PageDown => {
                 self.next_image();
@@ -213,6 +219,28 @@ impl App {
         }
     }
 
+    fn reset_view(&mut self) {
+        self.zoom = 1.0;
+        if self.verbose {
+            eprintln!("[DEBUG] zoom reset: 100%");
+        }
+        if let Some(window) = self.window {
+            window.request_redraw();
+        }
+    }
+
+    fn zoom_by(&mut self, factor: f64) {
+        self.zoom = (self.zoom * factor).clamp(0.05, 20.0);
+
+        if self.verbose {
+            eprintln!("[DEBUG] zoom: {:.0}%", self.zoom * 100.0);
+        }
+
+        if let Some(window) = self.window {
+            window.request_redraw();
+        }
+    }
+
     fn render(&mut self) {
         let Some(window) = self.window else {
             return;
@@ -246,7 +274,8 @@ impl App {
         let src_w = rgba.width();
         let src_h = rgba.height();
 
-        let scale = (size.width as f64 / src_w as f64).min(size.height as f64 / src_h as f64);
+        let fit_scale = (size.width as f64 / src_w as f64).min(size.height as f64 / src_h as f64);
+        let scale = fit_scale * self.zoom;
 
         let dst_w = (src_w as f64 * scale).round() as u32;
         let dst_h = (src_h as f64 * scale).round() as u32;
@@ -327,6 +356,19 @@ impl ApplicationHandler for App {
 
             WindowEvent::KeyboardInput { event, .. } => {
                 self.handle_key(event_loop, &event);
+            }
+
+            WindowEvent::MouseWheel { delta, .. } => {
+                let amount = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => y as f64,
+                    winit::event::MouseScrollDelta::PixelDelta(position) => position.y / 40.0,
+                };
+
+                if amount > 0.0 {
+                    self.zoom_by(1.1_f64.powf(amount));
+                } else if amount < 0.0 {
+                    self.zoom_by(1.1_f64.powf(amount));
+                }
             }
 
             _ => {}
