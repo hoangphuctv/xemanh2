@@ -2,8 +2,9 @@ use softbuffer::{Context, Surface};
 use std::{env, num::NonZeroU32};
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{ElementState, KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
+    keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
 
@@ -12,6 +13,7 @@ struct App {
     surface: Option<Surface<&'static Window, &'static Window>>,
     image: Option<image::DynamicImage>,
     verbose: bool,
+    fullscreen: bool,
 }
 
 impl App {
@@ -21,6 +23,57 @@ impl App {
             surface: None,
             image: None,
             verbose: false,
+            fullscreen: false,
+        }
+    }
+
+    fn toggle_fullscreen(&mut self) {
+        let Some(window) = self.window else {
+            return;
+        };
+
+        self.fullscreen = !self.fullscreen;
+        window.set_fullscreen(if self.fullscreen {
+            Some(winit::window::Fullscreen::Borderless(None))
+        } else {
+            None
+        });
+
+        if self.verbose {
+            eprintln!("[DEBUG] fullscreen: {}", self.fullscreen);
+        }
+
+        window.request_redraw();
+    }
+
+    fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+        if event.state != ElementState::Pressed || event.repeat {
+            return;
+        }
+
+        let PhysicalKey::Code(code) = event.physical_key else {
+            return;
+        };
+
+        if self.verbose {
+            eprintln!("[DEBUG] key: {code:?}");
+        }
+
+        match code {
+            KeyCode::Escape => {
+                if self.fullscreen {
+                    self.toggle_fullscreen();
+                } else {
+                    event_loop.exit();
+                }
+            }
+            KeyCode::Space => self.toggle_fullscreen(),
+            KeyCode::Digit0 | KeyCode::Numpad0 => {
+                if let Some(window) = self.window {
+                    window.request_redraw();
+                }
+            }
+            _ => {}
         }
     }
 
@@ -156,6 +209,10 @@ impl ApplicationHandler for App {
                 if let Some(window) = self.window {
                     window.request_redraw();
                 }
+            }
+
+            WindowEvent::KeyboardInput { event, .. } => {
+                self.handle_key(event_loop, &event);
             }
 
             _ => {}
