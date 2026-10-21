@@ -1,5 +1,5 @@
 use softbuffer::{Context, Surface};
-use std::{env, num::NonZeroU32};
+use std::{env, num::NonZeroU32, path::PathBuf};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, KeyEvent, WindowEvent},
@@ -12,6 +12,8 @@ struct App {
     window: Option<&'static Window>,
     surface: Option<Surface<&'static Window, &'static Window>>,
     image: Option<image::DynamicImage>,
+    images: Vec<PathBuf>,
+    image_index: usize,
     verbose: bool,
     fullscreen: bool,
 }
@@ -22,6 +24,8 @@ impl App {
             window: None,
             surface: None,
             image: None,
+            images: Vec::new(),
+            image_index: 0,
             verbose: false,
             fullscreen: false,
         }
@@ -73,6 +77,32 @@ impl App {
                     window.request_redraw();
                 }
             }
+            KeyCode::ArrowRight | KeyCode::ArrowDown | KeyCode::PageDown => {
+                self.next_image();
+            }
+            KeyCode::ArrowLeft | KeyCode::ArrowUp | KeyCode::PageUp => {
+                self.prev_image();
+            }
+            KeyCode::Home => {
+                if !self.images.is_empty() {
+                    self.image_index = 0;
+                    let path = self.images[0].clone();
+                    self.load_image(path.to_string_lossy().as_ref());
+                    if let Some(window) = self.window {
+                        window.request_redraw();
+                    }
+                }
+            }
+            KeyCode::End => {
+                if !self.images.is_empty() {
+                    self.image_index = self.images.len() - 1;
+                    let path = self.images[self.image_index].clone();
+                    self.load_image(path.to_string_lossy().as_ref());
+                    if let Some(window) = self.window {
+                        window.request_redraw();
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -97,6 +127,90 @@ impl App {
         }
 
         self.image = Some(image);
+    }
+
+    fn build_gallery(&mut self, path: &str) {
+        let Some(parent) = std::path::Path::new(path).parent() else {
+            return;
+        };
+
+        let extensions = ["jpg", "jpeg", "png", "bmp", "gif", "webp", "tga"];
+
+        let mut images: Vec<PathBuf> = std::fs::read_dir(parent)
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.is_file()
+                    && path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .map(|ext| extensions.contains(&ext.to_ascii_lowercase().as_str()))
+                        .unwrap_or(false)
+            })
+            .collect();
+
+        images.sort_by(|a, b| {
+            a.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_lowercase()
+                .cmp(
+                    &b.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_lowercase(),
+                )
+        });
+
+        self.images = images;
+        self.image_index = self
+            .images
+            .iter()
+            .position(|image| image == std::path::Path::new(path))
+            .unwrap_or(0);
+
+        if self.verbose {
+            eprintln!(
+                "[DEBUG] gallery: {} images, index={}",
+                self.images.len(),
+                self.image_index
+            );
+        }
+    }
+
+    fn next_image(&mut self) {
+        if self.images.is_empty() {
+            return;
+        }
+
+        self.image_index = (self.image_index + 1) % self.images.len();
+        let path = self.images[self.image_index].clone();
+        self.load_image(path.to_string_lossy().as_ref());
+
+        if let Some(window) = self.window {
+            window.request_redraw();
+        }
+    }
+
+    fn prev_image(&mut self) {
+        if self.images.is_empty() {
+            return;
+        }
+
+        self.image_index = if self.image_index == 0 {
+            self.images.len() - 1
+        } else {
+            self.image_index - 1
+        };
+
+        let path = self.images[self.image_index].clone();
+        self.load_image(path.to_string_lossy().as_ref());
+
+        if let Some(window) = self.window {
+            window.request_redraw();
+        }
     }
 
     fn render(&mut self) {
@@ -245,6 +359,7 @@ fn main() {
     app.verbose = verbose;
 
     if let Some(path) = image_path {
+        app.build_gallery(&path);
         app.load_image(&path);
     }
 
