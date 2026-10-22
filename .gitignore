@@ -1,1 +1,7 @@
 /target
+/dist
+.release-version
+*.tmp
+*.log
+Thumbs.db
+Desktop.ini
