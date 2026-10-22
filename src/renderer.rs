@@ -8,9 +8,8 @@ use crate::{debug_log, App};
 
 impl App {
     pub(crate) fn render(&mut self) {
-        let render_start = Instant::now();
         if self.verbose {
-            debug_log!("[DEBUG] render: begin");
+            debug_log("[DEBUG] render: begin".to_string());
         }
         self.update_gif();
 
@@ -31,7 +30,7 @@ impl App {
             self.rotation,
             self.zoom,
             self.gif_frames.len() > 1,
-            self.surface_size.as_mut(),
+            &mut self.surface_size,
             self.verbose,
         );
     }
@@ -64,7 +63,10 @@ fn render_image(
         *surface_size = Some(current_size);
 
         if verbose {
-            debug_log!("[DEBUG] surface resized: {}x{}", size.width, size.height);
+            debug_log(format!(
+                "[DEBUG] surface resized: {}x{}",
+                size.width, size.height
+            ));
         }
     }
 
@@ -114,14 +116,14 @@ fn render_image(
     let resize_time = resize_start.elapsed();
 
     if verbose {
-        debug_log!("[DEBUG] render: resize complete");
+        debug_log("[DEBUG] render: resize complete".to_string());
     }
 
     let offset_x = (size.width as i64 - dst_w as i64) / 2;
     let offset_y = (size.height as i64 - dst_h as i64) / 2;
 
     if verbose {
-        debug_log!(
+        debug_log(format!(
             "[DEBUG] render: {}x{} -> {}x{}, filter={:?}, offset=({}, {})",
             src_w,
             src_h,
@@ -130,7 +132,7 @@ fn render_image(
             filter,
             offset_x,
             offset_y
-        );
+        ));
     }
 
     let resized_width = resized.width() as usize;
@@ -162,7 +164,7 @@ fn render_image(
     let copy_time = copy_start.elapsed();
 
     if verbose {
-        debug_log!("[DEBUG] render: copy complete");
+        debug_log("[DEBUG] render: copy complete".to_string());
     }
 
     let present_start = Instant::now();
@@ -170,12 +172,12 @@ fn render_image(
     let present_time = present_start.elapsed();
 
     if verbose {
-        debug_log!(
+        debug_log(format!(
             "[DEBUG] render_time: {}ms, resize={}ms, copy={}ms, present={}ms",
             render_start.elapsed().as_millis(),
             resize_time.as_millis(),
             copy_time.as_millis(),
             present_time.as_millis()
-        );
+        ));
     }
 }
