@@ -1,11 +1,20 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 use softbuffer::{Context, Surface};
-use std::{env, fs::OpenOptions, io::Write, num::NonZeroU32, path::PathBuf, sync::Mutex};
+use std::{
+    env,
+    fs::OpenOptions,
+    io::{BufReader, Write},
+    num::NonZeroU32,
+    path::PathBuf,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
+use image::AnimationDecoder;
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, KeyEvent, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
@@ -17,17 +26,20 @@ fn init_debug_log(enabled: bool) {
         return;
     }
 
-    let Some(local_app_data) = env::var_os("LOCALAPPDATA") else {
-        return;
+    let path = match env::current_dir() {
+        Ok(dir) => dir.join("xemanh2.log"),
+        Err(_) => return,
     };
 
-    let dir = PathBuf::from(local_app_data).join("XemAnh2");
-    if std::fs::create_dir_all(&dir).is_err() {
-        return;
-    }
-
-    let path = dir.join("xemanh2.log");
-    if let Ok(file) = OpenOptions::new().create(true).append(true).open(path) {
+    if let Ok(file) = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&path)
+    {
+        let mut file = file;
+        let _ = writeln!(file, "[DEBUG] log file: {}", path.display());
+        let _ = file.flush();
         *DEBUG_LOG.lock().unwrap() = Some(file);
     }
 }
@@ -48,10 +60,16 @@ macro_rules! debug_log {
 struct App {
     window: Option<&'static Window>,
     surface: Option<Surface<&'static Window, &'static Window>>,
+    surface_size: Option<(u32, u32)>,
     image: Option<image::DynamicImage>,
+    gif_frames: Vec<image::DynamicImage>,
+    gif_delays: Vec<Duration>,
+    gif_frame_index: usize,
+    gif_next_frame: Option<Instant>,
     images: Vec<PathBuf>,
     image_index: usize,
     zoom: f64,
+    rotation: i32,
     verbose: bool,
     fullscreen: bool,
 }
@@ -61,10 +79,16 @@ impl App {
         Self {
             window: None,
             surface: None,
+            surface_size: None,
             image: None,
+            gif_frames: Vec::new(),
+            gif_delays: Vec::new(),
+            gif_frame_index: 0,
+            gif_next_frame: None,
             images: Vec::new(),
             image_index: 0,
             zoom: 1.0,
+            rotation: 0,
             verbose: false,
             fullscreen: false,
         }
@@ -99,7 +123,7 @@ impl App {
         };
 
         if self.verbose {
-            debug_log!("[DEBUG] key: {code:?}");
+            debug_log!("[DEBUG] key pressed: {code:?}");
         }
 
         match code {
@@ -119,6 +143,15 @@ impl App {
             }
             KeyCode::Minus | KeyCode::NumpadSubtract => {
                 self.zoom_by(0.8);
+            }
+            KeyCode::KeyR => {
+                self.rotate(90);
+            }
+            KeyCode::KeyL => {
+                self.rotate(-90);
+            }
+            KeyCode::KeyS => {
+                self.save_image();
             }
             KeyCode::ArrowRight | KeyCode::ArrowDown | KeyCode::PageDown => {
                 self.next_image();
@@ -155,6 +188,52 @@ impl App {
             debug_log!("[DEBUG] loading image: {path}");
         }
 
+        self.gif_frames.clear();
+        self.gif_delays.clear();
+        self.gif_frame_index = 0;
+        self.gif_next_frame = None;
+        self.rotation = 0;
+
+        if std::path::Path::new(path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("gif"))
+            .unwrap_or(false)
+        {
+            let file = std::fs::File::open(path)
+                .unwrap_or_else(|e| panic!("failed to open image '{path}': {e}"));
+            let decoder = image::codecs::gif::GifDecoder::new(BufReader::new(file))
+                .unwrap_or_else(|e| panic!("failed to decode gif '{path}': {e}"));
+
+            let frames = decoder
+                .into_frames()
+                .collect_frames()
+                .unwrap_or_else(|e| panic!("failed to decode gif frames '{path}': {e}"));
+
+            if frames.is_empty() {
+                panic!("gif '{path}' contains no frames");
+            }
+
+            for frame in frames {
+                let delay = frame.delay().numer_denom_ms();
+                let delay = Duration::from_millis(
+                    ((delay.0 as u64) + (delay.1 as u64) - 1) / delay.1 as u64,
+                )
+                .max(Duration::from_millis(10));
+                self.gif_delays.push(delay);
+                self.gif_frames
+                    .push(image::DynamicImage::ImageRgba8(frame.into_buffer()));
+            }
+
+            self.image = Some(self.gif_frames[0].clone());
+            self.gif_next_frame = Some(Instant::now() + self.gif_delays[0]);
+
+            if self.verbose {
+                debug_log!("[DEBUG] decoded gif: {} frames", self.gif_frames.len());
+            }
+            return;
+        }
+
         let image = image::ImageReader::open(path)
             .unwrap_or_else(|e| panic!("failed to open image '{path}': {e}"))
             .decode()
@@ -170,6 +249,44 @@ impl App {
         }
 
         self.image = Some(image);
+    }
+
+    fn update_gif(&mut self) {
+        if self.gif_frames.len() <= 1 {
+            return;
+        }
+
+        let Some(next_frame) = self.gif_next_frame else {
+            return;
+        };
+
+        let now = Instant::now();
+        if now < next_frame {
+            return;
+        }
+
+        let mut deadline = next_frame;
+        loop {
+            self.gif_frame_index = (self.gif_frame_index + 1) % self.gif_frames.len();
+            deadline += self.gif_delays[self.gif_frame_index];
+
+            if deadline > now {
+                break;
+            }
+        }
+
+        self.image = Some(self.gif_frames[self.gif_frame_index].clone());
+        self.gif_next_frame = Some(deadline);
+
+        if self.verbose {
+            let remaining_ms = deadline.saturating_duration_since(now).as_millis();
+            debug_log!(
+                "[DEBUG] gif frame: {}/{}, next in {}ms",
+                self.gif_frame_index + 1,
+                self.gif_frames.len(),
+                remaining_ms
+            );
+        }
     }
 
     fn build_gallery(&mut self, path: &str) {
@@ -258,11 +375,60 @@ impl App {
 
     fn reset_view(&mut self) {
         self.zoom = 1.0;
+        self.rotation = 0;
         if self.verbose {
-            debug_log!("[DEBUG] zoom reset: 100%");
+            debug_log!("[DEBUG] view reset: zoom=100%, rotation=0");
         }
         if let Some(window) = self.window {
             window.request_redraw();
+        }
+    }
+
+    fn rotate(&mut self, degrees: i32) {
+        self.rotation = (self.rotation + degrees).rem_euclid(360);
+
+        if self.verbose {
+            debug_log!("[DEBUG] rotation: {} degrees", self.rotation);
+        }
+
+        if let Some(window) = self.window {
+            window.request_redraw();
+        }
+    }
+
+    fn save_image(&mut self) {
+        let Some(image) = self.image.as_ref() else {
+            return;
+        };
+
+        let Some(source) = self.images.get(self.image_index) else {
+            return;
+        };
+
+        let Some(stem) = source.file_stem().and_then(|name| name.to_str()) else {
+            return;
+        };
+        let Some(parent) = source.parent() else {
+            return;
+        };
+
+        let output = parent.join(format!("{stem}_edited.png"));
+        let image = match self.rotation {
+            90 => image.rotate90(),
+            180 => image.rotate180(),
+            270 => image.rotate270(),
+            _ => image.clone(),
+        };
+
+        if let Err(error) = image.save(&output) {
+            if self.verbose {
+                debug_log!("[DEBUG] save failed: {}: {}", output.display(), error);
+            }
+            return;
+        }
+
+        if self.verbose {
+            debug_log!("[DEBUG] saved image: {}", output.display());
         }
     }
 
@@ -279,6 +445,12 @@ impl App {
     }
 
     fn render(&mut self) {
+        let render_start = Instant::now();
+        if self.verbose {
+            debug_log!("[DEBUG] render: begin");
+        }
+        self.update_gif();
+
         let Some(window) = self.window else {
             return;
         };
@@ -294,18 +466,33 @@ impl App {
             return;
         }
 
-        surface
-            .resize(
-                NonZeroU32::new(size.width).unwrap(),
-                NonZeroU32::new(size.height).unwrap(),
-            )
-            .expect("failed to resize surface");
+        let current_size = (size.width, size.height);
+        if self.surface_size != Some(current_size) {
+            surface
+                .resize(
+                    NonZeroU32::new(size.width).unwrap(),
+                    NonZeroU32::new(size.height).unwrap(),
+                )
+                .expect("failed to resize surface");
+            self.surface_size = Some(current_size);
+
+            if self.verbose {
+                debug_log!("[DEBUG] surface resized: {}x{}", size.width, size.height);
+            }
+        }
 
         let mut buffer = surface.buffer_mut().expect("failed to get framebuffer");
 
         for pixel in buffer.iter_mut() {
             *pixel = 0x202020;
         }
+
+        let image = match self.rotation {
+            90 => image.rotate90(),
+            180 => image.rotate180(),
+            270 => image.rotate270(),
+            _ => image.clone(),
+        };
 
         let rgba = image.to_rgba8();
         let src_w = rgba.width();
@@ -316,44 +503,108 @@ impl App {
 
         let dst_w = (src_w as f64 * scale).round() as u32;
         let dst_h = (src_h as f64 * scale).round() as u32;
+        if dst_w == 0 || dst_h == 0 {
+            return;
+        }
+
+        let filter = if self.gif_frames.len() > 1 {
+            image::imageops::FilterType::Nearest
+        } else if scale < 1.0 {
+            image::imageops::FilterType::Lanczos3
+        } else {
+            image::imageops::FilterType::CatmullRom
+        };
+        let resize_start = Instant::now();
+        let resized = if dst_w == src_w && dst_h == src_h {
+            rgba
+        } else {
+            image::imageops::resize(&rgba, dst_w, dst_h, filter)
+        };
+        let resize_time = resize_start.elapsed();
+
+        if self.verbose {
+            debug_log!("[DEBUG] render: resize complete");
+        }
+
         let offset_x = (size.width as i64 - dst_w as i64) / 2;
         let offset_y = (size.height as i64 - dst_h as i64) / 2;
 
         if self.verbose {
             debug_log!(
-                "[DEBUG] render: {}x{} -> {}x{}, offset=({}, {})",
-                src_w, src_h, dst_w, dst_h, offset_x, offset_y
+                "[DEBUG] render: {}x{} -> {}x{}, filter={:?}, offset=({}, {})",
+                src_w, src_h, dst_w, dst_h, filter, offset_x, offset_y
             );
         }
 
+        let resized_width = resized.width() as usize;
+        let resized_height = resized.height() as usize;
+        let resized_raw = resized.as_raw();
+
+        let copy_start = Instant::now();
         for y in 0..dst_h {
             let dest_y = offset_y + y as i64;
-            if dest_y < 0 || dest_y >= size.height as i64 {
+            if dest_y < 0 || dest_y >= size.height as i64 || y >= resized_height as u32 {
                 continue;
             }
 
-            let sy = (y as u64 * src_h as u64 / dst_h as u64) as u32;
-
+            let src_y = y as usize;
             for x in 0..dst_w {
                 let dest_x = offset_x + x as i64;
-                if dest_x < 0 || dest_x >= size.width as i64 {
+                if dest_x < 0 || dest_x >= size.width as i64 || x >= resized_width as u32 {
                     continue;
                 }
 
-                let sx = (x as u64 * src_w as u64 / dst_w as u64) as u32;
-                let pixel = rgba.get_pixel(sx, sy);
+                let src_index = (src_y * resized_width + x as usize) * 4;
+                let pixel = &resized_raw[src_index..src_index + 4];
 
                 let index = (dest_y as u32 * size.width + dest_x as u32) as usize;
                 buffer[index] =
                     ((pixel[0] as u32) << 16) | ((pixel[1] as u32) << 8) | pixel[2] as u32;
             }
         }
+        let copy_time = copy_start.elapsed();
 
+        if self.verbose {
+            debug_log!("[DEBUG] render: copy complete");
+        }
+
+        let present_start = Instant::now();
         buffer.present().expect("failed to present framebuffer");
+        let present_time = present_start.elapsed();
+
+        if self.verbose {
+            debug_log!(
+                "[DEBUG] render_time: {}ms, resize={}ms, copy={}ms, present={}ms",
+                render_start.elapsed().as_millis(),
+                resize_time.as_millis(),
+                copy_time.as_millis(),
+                present_time.as_millis()
+            );
+        }
     }
 }
 
 impl ApplicationHandler for App {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.gif_frames.len() <= 1 {
+            return;
+        }
+
+        let Some(next_frame) = self.gif_next_frame else {
+            return;
+        };
+
+        let now = Instant::now();
+        if now >= next_frame {
+            if let Some(window) = self.window {
+                window.request_redraw();
+            }
+            event_loop.set_control_flow(ControlFlow::Wait);
+        } else {
+            event_loop.set_control_flow(ControlFlow::WaitUntil(next_frame));
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
