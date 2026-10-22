@@ -39,7 +39,55 @@ set "XEMANH2_VERSION=%VERSION%"
 "%ISCC%" installer.iss
 if errorlevel 1 exit /b 1
 
+echo [5/6] Committing release version...
+git add Cargo.toml
+git commit -m "chore: release v%VERSION%"
+if errorlevel 1 (
+    echo ERROR: Failed to commit release version.
+    exit /b 1
+)
+
+echo [6/6] Uploading GitHub release...
+where gh >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: GitHub CLI ^(gh^) not found.
+    exit /b 1
+)
+
+gh auth status >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: GitHub CLI is not authenticated.
+    echo Run: gh auth login
+    exit /b 1
+)
+
+set "TAG=v%VERSION%"
+git rev-parse "%TAG%" >nul 2>&1
+if not errorlevel 1 (
+    echo ERROR: Git tag %TAG% already exists.
+    exit /b 1
+)
+
+git tag "%TAG%"
+if errorlevel 1 (
+    echo ERROR: Failed to create git tag %TAG%.
+    exit /b 1
+)
+
+git push origin "%TAG%"
+if errorlevel 1 (
+    echo ERROR: Failed to push git tag %TAG%.
+    exit /b 1
+)
+
+gh release create "%TAG%" "dist\xemanh2-%VERSION%-setup.exe" --title "XemAnh2 %VERSION%" --generate-notes
+if errorlevel 1 (
+    echo ERROR: Failed to create GitHub release.
+    exit /b 1
+)
+
 echo.
 echo Release complete:
+echo GitHub: %TAG%
 echo dist\xemanh2-%VERSION%-setup.exe
 exit /b 0
