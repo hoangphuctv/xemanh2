@@ -11,6 +11,8 @@ for /f "delims=" %%A in ('git status --porcelain -uall') do (
 )
 
 echo [2/6] Incrementing patch version...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0release-version.ps1"
+if errorlevel 1 exit /b 1
 
 if errorlevel 1 exit /b 1
 
