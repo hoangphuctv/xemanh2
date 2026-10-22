@@ -1,5 +1,7 @@
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 use softbuffer::{Context, Surface};
-use std::{env, num::NonZeroU32, path::PathBuf};
+use std::{env, fs::OpenOptions, io::Write, num::NonZeroU32, path::PathBuf, sync::Mutex};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, KeyEvent, WindowEvent},
@@ -7,6 +9,41 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
+
+static DEBUG_LOG: Mutex<Option<std::fs::File>> = Mutex::new(None);
+
+fn init_debug_log(enabled: bool) {
+    if !enabled {
+        return;
+    }
+
+    let Some(local_app_data) = env::var_os("LOCALAPPDATA") else {
+        return;
+    };
+
+    let dir = PathBuf::from(local_app_data).join("XemAnh2");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+
+    let path = dir.join("xemanh2.log");
+    if let Ok(file) = OpenOptions::new().create(true).append(true).open(path) {
+        *DEBUG_LOG.lock().unwrap() = Some(file);
+    }
+}
+
+fn debug_log(message: String) {
+    if let Some(file) = DEBUG_LOG.lock().unwrap().as_mut() {
+        let _ = writeln!(file, "{message}");
+        let _ = file.flush();
+    }
+}
+
+macro_rules! debug_log {
+    ($($arg:tt)*) => {
+        debug_log(format!($($arg)*));
+    };
+}
 
 struct App {
     window: Option<&'static Window>,
@@ -46,7 +83,7 @@ impl App {
         });
 
         if self.verbose {
-            eprintln!("[DEBUG] fullscreen: {}", self.fullscreen);
+            debug_log!("[DEBUG] fullscreen: {}", self.fullscreen);
         }
 
         window.request_redraw();
@@ -62,7 +99,7 @@ impl App {
         };
 
         if self.verbose {
-            eprintln!("[DEBUG] key: {code:?}");
+            debug_log!("[DEBUG] key: {code:?}");
         }
 
         match code {
@@ -115,7 +152,7 @@ impl App {
 
     fn load_image(&mut self, path: &str) {
         if self.verbose {
-            eprintln!("[DEBUG] loading image: {path}");
+            debug_log!("[DEBUG] loading image: {path}");
         }
 
         let image = image::ImageReader::open(path)
@@ -124,7 +161,7 @@ impl App {
             .unwrap_or_else(|e| panic!("failed to decode image '{path}': {e}"));
 
         if self.verbose {
-            eprintln!(
+            debug_log!(
                 "[DEBUG] decoded image: {}x{}, color={:?}",
                 image.width(),
                 image.height(),
@@ -178,7 +215,7 @@ impl App {
             .unwrap_or(0);
 
         if self.verbose {
-            eprintln!(
+            debug_log!(
                 "[DEBUG] gallery: {} images, index={}",
                 self.images.len(),
                 self.image_index
@@ -222,7 +259,7 @@ impl App {
     fn reset_view(&mut self) {
         self.zoom = 1.0;
         if self.verbose {
-            eprintln!("[DEBUG] zoom reset: 100%");
+            debug_log!("[DEBUG] zoom reset: 100%");
         }
         if let Some(window) = self.window {
             window.request_redraw();
@@ -233,7 +270,7 @@ impl App {
         self.zoom = (self.zoom * factor).clamp(0.05, 20.0);
 
         if self.verbose {
-            eprintln!("[DEBUG] zoom: {:.0}%", self.zoom * 100.0);
+            debug_log!("[DEBUG] zoom: {:.0}%", self.zoom * 100.0);
         }
 
         if let Some(window) = self.window {
@@ -283,7 +320,7 @@ impl App {
         let offset_y = (size.height as i64 - dst_h as i64) / 2;
 
         if self.verbose {
-            eprintln!(
+            debug_log!(
                 "[DEBUG] render: {}x{} -> {}x{}, offset=({}, {})",
                 src_w, src_h, dst_w, dst_h, offset_x, offset_y
             );
@@ -395,15 +432,16 @@ fn main() {
             "-v" | "--verbose" => verbose = true,
             _ if image_path.is_none() => image_path = Some(arg),
             _ => {
-                eprintln!("error: unexpected argument: {arg}");
+                debug_log!("error: unexpected argument: {arg}");
                 std::process::exit(2);
             }
         }
     }
 
     if verbose {
-        eprintln!("[DEBUG] verbose logging enabled");
-        eprintln!("[DEBUG] image path: {:?}", image_path);
+        init_debug_log(true);
+        debug_log!("[DEBUG] verbose logging enabled");
+        debug_log!("[DEBUG] image path: {:?}", image_path);
     }
 
     if image_path.is_none() {
@@ -446,7 +484,7 @@ fn main() {
             }
 
             if verbose {
-                eprintln!(
+                debug_log!(
                     "[DEBUG] default Pictures: {}, images={}",
                     pictures.display(),
                     images.len()

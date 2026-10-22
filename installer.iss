@@ -1,5 +1,6 @@
 #define AppName "XemAnh2"
-#ifndef AppVersion
+#define AppVersion GetEnv("XEMANH2_VERSION")
+#if AppVersion == ""
   #define AppVersion "0.1.0"
 #endif
 #define AppPublisher "XemAnh2"

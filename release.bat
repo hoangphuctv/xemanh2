@@ -36,7 +36,7 @@ if not exist "%ISCC%" (
 )
 
 set "XEMANH2_VERSION=%VERSION%"
-"%ISCC%" /DAppVersion=%VERSION% installer.iss
+"%ISCC%" installer.iss
 if errorlevel 1 exit /b 1
 
 echo.
