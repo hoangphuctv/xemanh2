@@ -11,8 +11,6 @@ for /f "delims=" %%A in ('git status --porcelain -uall') do (
 )
 
 echo [2/6] Incrementing patch version...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  '$p = "Cargo.toml"; $s = [IO.File]::ReadAllText($p); $m = [regex]::Match($s, "(?m)^version\s*=\s*""(\d+)\.(\d+)\.(\d+)""\s*$"); if (!$m.Success) { throw "Cannot find package version in Cargo.toml" }; $v = [int]$m.Groups[3].Value + 1; $new = "$($m.Groups[1].Value).$($m.Groups[2].Value).$v"; $s = $s.Substring(0,$m.Index) + ("version = ""$new""") + $s.Substring($m.Index + $m.Length); [IO.File]::WriteAllText($p, $s, [Text.UTF8Encoding]::new($false)); Set-Content -Path ".release-version" -Value $new -NoNewline'
 
 if errorlevel 1 exit /b 1
 
