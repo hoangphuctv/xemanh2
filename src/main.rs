@@ -405,6 +405,19 @@ impl ApplicationHandler for App {
                 self.handle_key(event_loop, &event);
             }
 
+            WindowEvent::DroppedFile(path) => {
+                if let Some(path) = path.to_str() {
+                    debug_log!("[DEBUG] dropped file: {}", path);
+                    self.build_gallery(path);
+                    self.load_image(path);
+                    self.zoom = 1.0;
+
+                    if let Some(window) = self.window {
+                        window.request_redraw();
+                    }
+                }
+            }
+
             WindowEvent::MouseWheel { delta, .. } => {
                 let amount = match delta {
                     winit::event::MouseScrollDelta::LineDelta(_, y) => y as f64,
