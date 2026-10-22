@@ -498,8 +498,13 @@ impl App {
         let src_w = rgba.width();
         let src_h = rgba.height();
 
-        let fit_scale = (size.width as f64 / src_w as f64).min(size.height as f64 / src_h as f64);
-        let scale = fit_scale * self.zoom;
+        let fit_scale =
+            (size.width as f64 / src_w as f64).min(size.height as f64 / src_h as f64);
+        let scale = if self.gif_frames.len() > 1 {
+            self.zoom
+        } else {
+            fit_scale * self.zoom
+        };
 
         let dst_w = (src_w as f64 * scale).round() as u32;
         let dst_h = (src_h as f64 * scale).round() as u32;
