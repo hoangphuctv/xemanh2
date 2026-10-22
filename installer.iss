@@ -12,6 +12,7 @@ AppId={{8E1C8E7B-6A0A-4C61-9A2D-9F4A2A8D8F51}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+SetupIconFile=assets\icon.ico
 DefaultDirName={autopf}\XemAnh2
 DefaultGroupName={#AppName}
 OutputDir=dist
@@ -26,8 +27,8 @@ UninstallDisplayIcon={app}\{#AppExeName}
 Source: "target\release\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
