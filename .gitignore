@@ -3,5 +3,6 @@
 .release-version
 *.tmp
 *.log
+xemanh2.log
 Thumbs.db
 Desktop.ini
