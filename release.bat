@@ -20,6 +20,16 @@ set /p VERSION=<.release-version
 del .release-version
 
 echo Version: %VERSION%
+if "%VERSION%"=="" (
+    echo ERROR: Release version is empty.
+    exit /b 1
+)
+
+git diff --quiet -- Cargo.toml
+if not errorlevel 1 (
+    echo ERROR: Cargo.toml version was not changed.
+    exit /b 1
+)
 
 echo [3/6] Building release...
 cargo build --release
@@ -41,6 +51,11 @@ if errorlevel 1 exit /b 1
 
 echo [5/6] Committing release version...
 git add Cargo.toml
+git diff --cached --quiet -- Cargo.toml
+if not errorlevel 1 (
+    echo ERROR: No Cargo.toml changes staged for release commit.
+    exit /b 1
+)
 git commit -m "chore: release v%VERSION%"
 if errorlevel 1 (
     echo ERROR: Failed to commit release version.
