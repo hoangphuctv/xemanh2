@@ -406,6 +406,55 @@ fn main() {
         eprintln!("[DEBUG] image path: {:?}", image_path);
     }
 
+    if image_path.is_none() {
+        let home = env::var_os("USERPROFILE")
+            .or_else(|| env::var_os("HOME"))
+            .map(PathBuf::from);
+
+        if let Some(pictures) = home.map(|home| home.join("Pictures")) {
+            let extensions = ["jpg", "jpeg", "png", "bmp", "gif", "webp", "tga"];
+            let mut images: Vec<PathBuf> = std::fs::read_dir(&pictures)
+                .into_iter()
+                .flatten()
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.is_file()
+                        && path
+                            .extension()
+                            .and_then(|ext| ext.to_str())
+                            .map(|ext| extensions.contains(&ext.to_ascii_lowercase().as_str()))
+                            .unwrap_or(false)
+                })
+                .collect();
+
+            images.sort_by(|a, b| {
+                a.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_lowercase()
+                    .cmp(
+                        &b.file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_lowercase(),
+                    )
+            });
+
+            if let Some(path) = images.first() {
+                image_path = Some(path.to_string_lossy().into_owned());
+            }
+
+            if verbose {
+                eprintln!(
+                    "[DEBUG] default Pictures: {}, images={}",
+                    pictures.display(),
+                    images.len()
+                );
+            }
+        }
+    }
+
     let event_loop = EventLoop::new().expect("failed to create event loop");
     let mut app = App::new();
     app.verbose = verbose;
