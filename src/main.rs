@@ -11,7 +11,7 @@ use std::{
 };
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{Modifiers, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Window, WindowId},
 };
@@ -66,6 +66,7 @@ struct App {
     surface: Option<Surface<&'static Window, &'static Window>>,
     surface_size: Option<(u32, u32)>,
     image: Option<image::DynamicImage>,
+    modifiers: Modifiers,
     gif_frames: Vec<image::DynamicImage>,
     gif_delays: Vec<Duration>,
     gif_frame_index: usize,
@@ -86,6 +87,7 @@ impl App {
             surface: None,
             surface_size: None,
             image: None,
+            modifiers: Modifiers::default(),
             gif_frames: Vec::new(),
             gif_delays: Vec::new(),
             gif_frame_index: 0,
@@ -190,6 +192,10 @@ impl ApplicationHandler for App {
 
             WindowEvent::KeyboardInput { event, .. } => {
                 self.handle_key(event_loop, &event);
+            }
+
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers;
             }
 
             WindowEvent::DroppedFile(path) => {

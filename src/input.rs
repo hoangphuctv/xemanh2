@@ -66,6 +66,9 @@ impl App {
             KeyCode::KeyS => {
                 self.save_image();
             }
+            KeyCode::KeyC if self.modifiers.state().control_key() => {
+                self.copy_image_to_clipboard();
+            }
             KeyCode::ArrowRight | KeyCode::ArrowDown | KeyCode::PageDown => {
                 self.next_image();
             }
