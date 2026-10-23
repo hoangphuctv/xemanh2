@@ -28,7 +28,7 @@ if not exist "%ISCC%" (
 )
 
 set "XEMANH2_VERSION=%VERSION%"
-"%ISCC%" installer.iss
+"%ISCC%" /F"xemanh2-%VERSION%-setup" installer.iss
 if errorlevel 1 exit /b 1
 
 echo.

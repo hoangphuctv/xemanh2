@@ -5,7 +5,6 @@
 #endif
 #define AppPublisher "XemAnh2"
 #define AppExeName "xemanh2.exe"
-#define OutputName "xemanh2-" + AppVersion + "-setup"
 
 [Setup]
 AppId={{8E1C8E7B-6A0A-4C61-9A2D-9F4A2A8D8F51}
@@ -16,7 +15,6 @@ SetupIconFile=assets\icon.ico
 DefaultDirName={autopf}\XemAnh2
 DefaultGroupName={#AppName}
 OutputDir=dist
-OutputBaseFilename={#OutputName}
 Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -62,7 +60,7 @@ Root: HKCU; Subkey: "Software\XemAnh2\Capabilities\FileAssociations"; ValueType:
 Root: HKCU; Subkey: "Software\XemAnh2\Capabilities\FileAssociations"; ValueType: string; ValueName: ".bmp"; ValueData: "XemAnh2.Image"
 Root: HKCU; Subkey: "Software\XemAnh2\Capabilities\FileAssociations"; ValueType: string; ValueName: ".gif"; ValueData: "XemAnh2.Image"
 Root: HKCU; Subkey: "Software\XemAnh2\Capabilities\FileAssociations"; ValueType: string; ValueName: ".webp"; ValueData: "XemAnh2.Image"
-Root: HKCU; Subkey: "Software\XemAnh2\Capabilities\FileAssociations"; ValueType: string; Value
+Root: HKCU; Subkey: "Software\XemAnh2\Capabilities\FileAssociations"; ValueType: string; ValueName: ".tga"; ValueData: "XemAnh2.Image"
 
 Root: HKCU; Subkey: "Software\Classes\.jpg"; ValueType: string; ValueName: ""; ValueData: "XemAnh2.Image"; Tasks: associations\jpg
 Root: HKCU; Subkey: "Software\Classes\.jpeg"; ValueType: string; ValueName: ""; ValueData: "XemAnh2.Image"; Tasks: associations\jpg
