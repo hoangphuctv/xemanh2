@@ -88,10 +88,18 @@ fn render_image(
 
     let fit_scale =
         (size.width as f64 / src_w as f64).min(size.height as f64 / src_h as f64);
-    let scale = if is_gif {
-        zoom
+
+    // zoom == 1.0 is the untouched/default state:
+    // - show images at native size when they fit;
+    // - downscale large images only when necessary;
+    // - never upscale automatically.
+    //
+    // Once the user changes zoom, `zoom` is an explicit scale relative
+    // to the image's native resolution rather than relative to fit-to-window.
+    let scale = if (zoom - 1.0).abs() < f64::EPSILON {
+        fit_scale.min(1.0)
     } else {
-        fit_scale * zoom
+        zoom
     };
 
     let dst_w = (src_w as f64 * scale).round() as u32;
