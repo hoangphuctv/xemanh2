@@ -73,6 +73,7 @@ struct App {
     images: Vec<PathBuf>,
     image_index: usize,
     zoom: f64,
+    target_zoom: f64,
     rotation: i32,
     verbose: bool,
     fullscreen: bool,
@@ -92,6 +93,7 @@ impl App {
             images: Vec::new(),
             image_index: 0,
             zoom: 1.0,
+            target_zoom: 1.0,
             rotation: 0,
             verbose: false,
             fullscreen: false,
@@ -102,6 +104,24 @@ impl App {
 
 impl ApplicationHandler for App {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        const ZOOM_EPSILON: f64 = 0.001;
+        const ZOOM_SMOOTHING: f64 = 0.28;
+
+        if (self.zoom - self.target_zoom).abs() > ZOOM_EPSILON {
+            self.zoom += (self.target_zoom - self.zoom) * ZOOM_SMOOTHING;
+
+            if let Some(window) = self.window {
+                window.request_redraw();
+            }
+
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + Duration::from_millis(16),
+            ));
+            return;
+        }
+
+        self.zoom = self.target_zoom;
+
         if self.gif_frames.len() <= 1 {
             return;
         }
@@ -178,6 +198,7 @@ impl ApplicationHandler for App {
                     self.build_gallery(path);
                     self.load_image(path);
                     self.zoom = 1.0;
+                    self.target_zoom = 1.0;
 
                     if let Some(window) = self.window {
                         window.request_redraw();

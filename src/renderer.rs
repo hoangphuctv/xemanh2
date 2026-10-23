@@ -29,6 +29,7 @@ impl App {
             image,
             self.rotation,
             self.zoom,
+            (self.zoom - self.target_zoom).abs() > 0.001,
             self.gif_frames.len() > 1,
             &mut self.surface_size,
             self.verbose,
@@ -42,6 +43,7 @@ fn render_image(
     image: &DynamicImage,
     rotation: i32,
     zoom: f64,
+    zoom_animating: bool,
     is_gif: bool,
     surface_size: &mut Option<(u32, u32)>,
     verbose: bool,
@@ -109,6 +111,8 @@ fn render_image(
     }
 
     let filter = if is_gif {
+        image::imageops::FilterType::Nearest
+    } else if zoom_animating {
         image::imageops::FilterType::Nearest
     } else if scale < 1.0 {
         image::imageops::FilterType::Lanczos3
