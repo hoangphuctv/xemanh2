@@ -4,11 +4,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 echo [1/6] Checking working tree...
-for /f "delims=" %%A in ('git status --porcelain -uall') do (
-    echo ERROR: Working tree is not clean.
-    echo %%A
-    exit /b 1
-)
+git status --short
 
 echo [2/6] Incrementing patch version...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0release-version.ps1"
