@@ -50,6 +50,7 @@ fn render_image(
 ) {
     let render_start = Instant::now();
     let size = window.inner_size();
+    let scale_factor = window.scale_factor();
     if size.width == 0 || size.height == 0 {
         return;
     }
@@ -99,9 +100,9 @@ fn render_image(
     // Once the user changes zoom, `zoom` is an explicit scale relative
     // to the image's native resolution rather than relative to fit-to-window.
     let scale = if (zoom - 1.0).abs() < f64::EPSILON {
-        fit_scale.min(1.0)
+        fit_scale.min(scale_factor)
     } else {
-        zoom
+        zoom * scale_factor
     };
 
     let dst_w = (src_w as f64 * scale).round() as u32;
@@ -136,11 +137,13 @@ fn render_image(
 
     if verbose {
         debug_log(format!(
-            "[DEBUG] render: {}x{} -> {}x{}, filter={:?}, offset=({}, {})",
+            "[DEBUG] render: {}x{} -> {}x{}, dpi={:.2}, zoom={:.2}, filter={:?}, offset=({}, {})",
             src_w,
             src_h,
             dst_w,
             dst_h,
+            scale_factor,
+            zoom,
             filter,
             offset_x,
             offset_y
