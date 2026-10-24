@@ -19,6 +19,14 @@ impl App {
 
     pub(crate) fn rotate(&mut self, degrees: i32) {
         self.rotation = (self.rotation + degrees).rem_euclid(360);
+        self.render_rgba = None;
+        self.render_rgba_rotation = self.rotation;
+        self.render_scaled = None;
+        self.render_scaled_size = None;
+        self.render_scaled_filter = None;
+        self.render_scaled = None;
+        self.render_scaled_size = None;
+        self.render_scaled_filter = None;
 
         if self.verbose {
             debug_log(format!(

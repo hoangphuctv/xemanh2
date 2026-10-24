@@ -18,6 +18,11 @@ impl App {
         self.gif_delays.clear();
         self.gif_frame_index = 0;
         self.gif_next_frame = None;
+        self.render_rgba = None;
+        self.render_rgba_rotation = 0;
+        self.render_scaled = None;
+        self.render_scaled_size = None;
+        self.render_scaled_filter = None;
         self.rotation = 0;
 
         if Path::new(path)
