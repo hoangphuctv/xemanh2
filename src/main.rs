@@ -75,6 +75,14 @@ struct App {
     zoom: f64,
     target_zoom: f64,
     rotation: i32,
+    pan_x: f64,
+    pan_y: f64,
+    zoom_anchor: Option<(f64, f64, f64, f64)>,
+    dragging: bool,
+    cursor_x: f64,
+    cursor_y: f64,
+    drag_last_x: f64,
+    drag_last_y: f64,
     verbose: bool,
     fullscreen: bool,
 }
@@ -95,6 +103,14 @@ impl App {
             zoom: 1.0,
             target_zoom: 1.0,
             rotation: 0,
+            pan_x: 0.0,
+            pan_y: 0.0,
+            zoom_anchor: None,
+            dragging: false,
+            cursor_x: 0.0,
+            cursor_y: 0.0,
+            drag_last_x: 0.0,
+            drag_last_y: 0.0,
             verbose: false,
             fullscreen: false,
         }
@@ -109,6 +125,7 @@ impl ApplicationHandler for App {
 
         if (self.zoom - self.target_zoom).abs() > ZOOM_EPSILON {
             self.zoom += (self.target_zoom - self.zoom) * ZOOM_SMOOTHING;
+            self.update_zoom_anchor();
 
             if let Some(window) = self.window {
                 window.request_redraw();
@@ -121,6 +138,8 @@ impl ApplicationHandler for App {
         }
 
         self.zoom = self.target_zoom;
+        self.update_zoom_anchor();
+        self.zoom_anchor = None;
 
         if self.gif_frames.len() <= 1 {
             return;
@@ -199,9 +218,48 @@ impl ApplicationHandler for App {
                     self.load_image(path);
                     self.zoom = 1.0;
                     self.target_zoom = 1.0;
+                    self.pan_x = 0.0;
+                    self.pan_y = 0.0;
+                    self.zoom_anchor = None;
 
                     if let Some(window) = self.window {
                         window.request_redraw();
+                    }
+                }
+            }
+
+            WindowEvent::CursorMoved { position, .. } => {
+                let scale_factor = self.window.map(|window| window.scale_factor()).unwrap_or(1.0);
+                let x = position.x / scale_factor;
+                let y = position.y / scale_factor;
+
+                if self.dragging {
+                    self.pan_x += x - self.drag_last_x;
+                    self.pan_y += y - self.drag_last_y;
+                    self.drag_last_x = x;
+                    self.drag_last_y = y;
+
+                    if let Some(window) = self.window {
+                        window.request_redraw();
+                    }
+                }
+
+                self.cursor_x = x;
+                self.cursor_y = y;
+            }
+
+            WindowEvent::MouseInput { state, button, .. } => {
+                if button == winit::event::MouseButton::Left {
+                    match state {
+                        winit::event::ElementState::Pressed => {
+                            self.dragging = true;
+                            self.zoom_anchor = None;
+                            self.drag_last_x = self.cursor_x;
+                            self.drag_last_y = self.cursor_y;
+                        }
+                        winit::event::ElementState::Released => {
+                            self.dragging = false;
+                        }
                     }
                 }
             }
@@ -212,10 +270,8 @@ impl ApplicationHandler for App {
                     winit::event::MouseScrollDelta::PixelDelta(position) => position.y / 40.0,
                 };
 
-                if amount > 0.0 {
-                    self.zoom_by(1.1_f64.powf(amount));
-                } else if amount < 0.0 {
-                    self.zoom_by(1.1_f64.powf(amount));
+                if amount != 0.0 {
+                    self.zoom_at_cursor(1.1_f64.powf(amount));
                 }
             }
 

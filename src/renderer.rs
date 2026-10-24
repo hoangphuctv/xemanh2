@@ -29,6 +29,8 @@ impl App {
             image,
             self.rotation,
             self.zoom,
+            self.pan_x,
+            self.pan_y,
             (self.zoom - self.target_zoom).abs() > 0.001,
             self.gif_frames.len() > 1,
             &mut self.surface_size,
@@ -43,6 +45,8 @@ fn render_image(
     image: &DynamicImage,
     rotation: i32,
     zoom: f64,
+    pan_x: f64,
+    pan_y: f64,
     zoom_animating: bool,
     is_gif: bool,
     surface_size: &mut Option<(u32, u32)>,
@@ -132,8 +136,10 @@ fn render_image(
         debug_log("[DEBUG] render: resize complete".to_string());
     }
 
-    let offset_x = (size.width as i64 - dst_w as i64) / 2;
-    let offset_y = (size.height as i64 - dst_h as i64) / 2;
+    let offset_x =
+        ((size.width as f64 - dst_w as f64) / 2.0 + pan_x * scale_factor).round() as i64;
+    let offset_y =
+        ((size.height as f64 - dst_h as f64) / 2.0 + pan_y * scale_factor).round() as i64;
 
     if verbose {
         debug_log(format!(
