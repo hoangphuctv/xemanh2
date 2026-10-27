@@ -28,6 +28,13 @@ impl App {
         }
 
         self.image = Some(self.gif_frames[self.gif_frame_index].clone());
+        self.render_rgba = None;
+        self.render_scaled = None;
+        self.render_scaled_size = None;
+        self.render_scaled_filter = None;
+        self.gif_next_frame = Some(deadline);
+        self.render_scaled_size = None;
+        self.render_scaled_filter = None;
         self.gif_next_frame = Some(deadline);
 
         if self.verbose {
