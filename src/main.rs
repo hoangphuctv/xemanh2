@@ -13,7 +13,7 @@ use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    window::{Window, WindowId},
+    window::{Icon, Window, WindowId},
 };
 
 mod renderer;
@@ -128,6 +128,14 @@ impl App {
         }
     }
 
+    fn load_window_icon() -> Option<Icon> {
+        let image = image::load_from_memory(include_bytes!("../assets/icon.png"))
+            .ok()?
+            .into_rgba8();
+        let (width, height) = image.dimensions();
+        Icon::from_rgba(image.into_raw(), width, height).ok()
+    }
+
     pub(crate) fn update_window_title(&self) {
         let Some(window) = self.window else {
             return;
@@ -239,7 +247,8 @@ impl ApplicationHandler for App {
                 .create_window(
                     Window::default_attributes()
                         .with_title("XemAnh2")
-                        .with_inner_size(winit::dpi::LogicalSize::new(1200.0, 800.0)),
+                        .with_inner_size(winit::dpi::LogicalSize::new(1200.0, 800.0))
+                        .with_window_icon(Self::load_window_icon()),
                 )
                 .expect("failed to create window"),
         ));
