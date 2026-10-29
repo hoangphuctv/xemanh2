@@ -90,6 +90,7 @@ struct App {
     drag_last_y: f64,
     verbose: bool,
     fullscreen: bool,
+    show_info: bool,
 }
 
 impl App {
@@ -123,7 +124,65 @@ impl App {
             drag_last_y: 0.0,
             verbose: false,
             fullscreen: false,
+            show_info: false,
         }
+    }
+
+    pub(crate) fn update_window_title(&self) {
+        let Some(window) = self.window else {
+            return;
+        };
+
+        if !self.show_info {
+            window.set_title("XemAnh2");
+            return;
+        }
+
+        let Some(path) = self.images.get(self.image_index) else {
+            window.set_title("XemAnh2");
+            return;
+        };
+
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("Unknown");
+
+        let Some(image) = self.image.as_ref() else {
+            window.set_title(name);
+            return;
+        };
+
+        let format = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("?")
+            .to_uppercase();
+
+        let size = std::fs::metadata(path)
+            .map(|metadata| {
+                let bytes = metadata.len();
+                if bytes < 1024 {
+                    format!("{bytes} B")
+                } else if bytes < 1024 * 1024 {
+                    format!("{:.1} KB", bytes as f64 / 1024.0)
+                } else {
+                    format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+                }
+            })
+            .unwrap_or_else(|_| "?".to_string());
+
+        let position = if self.images.is_empty() {
+            String::new()
+        } else {
+            format!(" | {} / {}", self.image_index + 1, self.images.len())
+        };
+
+        window.set_title(&format!(
+            "{name} | {}x{} | {format} | {size}{position} - XemAnh2",
+            image.width(),
+            image.height()
+        ));
     }
 
 }

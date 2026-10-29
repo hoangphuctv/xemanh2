@@ -9,6 +9,7 @@ Hỗ trợ:
 - JPEG, PNG, BMP, GIF, WebP, TGA
 - Điều hướng ảnh trong cùng thư mục
 - Zoom bằng phím hoặc chuột
+- `I`: hiển thị/ẩn thông tin ảnh trên tiêu đề cửa sổ
 - Fullscreen
 
 Công nghệ chính:

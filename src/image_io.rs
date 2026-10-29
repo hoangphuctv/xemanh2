@@ -65,6 +65,7 @@ impl App {
                     self.gif_frames.len()
                 ));
             }
+            self.update_window_title();
             return;
         }
 
@@ -83,6 +84,7 @@ impl App {
         }
 
         self.image = Some(image);
+        self.update_window_title();
     }
 
     pub(crate) fn save_image(&mut self) {

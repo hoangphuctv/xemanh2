@@ -66,6 +66,10 @@ impl App {
             KeyCode::KeyS => {
                 self.save_image();
             }
+            KeyCode::KeyI => {
+                self.show_info = !self.show_info;
+                self.update_window_title();
+            }
             KeyCode::ArrowRight | KeyCode::ArrowDown | KeyCode::PageDown => {
                 self.next_image();
             }
