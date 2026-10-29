@@ -57,6 +57,9 @@ impl App {
             KeyCode::Minus | KeyCode::NumpadSubtract => {
                 self.zoom_by(0.8);
             }
+            KeyCode::KeyC if self.modifiers.state().control_key() || self.modifiers.state().super_key() => {
+                self.copy_image_to_clipboard();
+            }
             KeyCode::KeyR => {
                 self.rotate(90);
             }
