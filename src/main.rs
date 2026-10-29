@@ -11,7 +11,7 @@ use std::{
 };
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{Modifiers, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Icon, Window, WindowId},
 };
@@ -66,6 +66,7 @@ struct App {
     surface: Option<Surface<&'static Window, &'static Window>>,
     surface_size: Option<(u32, u32)>,
     image: Option<image::DynamicImage>,
+    modifiers: Modifiers,
     render_rgba: Option<image::RgbaImage>,
     render_rgba_rotation: i32,
     render_scaled: Option<image::RgbaImage>,
@@ -100,12 +101,13 @@ impl App {
             surface: None,
             surface_size: None,
             image: None,
-        render_rgba: None,
-        render_rgba_rotation: 0,
-        render_scaled: None,
-        render_scaled_size: None,
-        render_scaled_filter: None,
-        gif_frames: Vec::new(),
+            modifiers: Modifiers::default(),
+            render_rgba: None,
+            render_rgba_rotation: 0,
+            render_scaled: None,
+            render_scaled_size: None,
+            render_scaled_filter: None,
+            gif_frames: Vec::new(),
             gif_delays: Vec::new(),
             gif_frame_index: 0,
             gif_next_frame: None,
@@ -287,6 +289,10 @@ impl ApplicationHandler for App {
 
             WindowEvent::KeyboardInput { event, .. } => {
                 self.handle_key(event_loop, &event);
+            }
+
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers;
             }
 
             WindowEvent::DroppedFile(path) => {

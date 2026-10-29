@@ -1,9 +1,10 @@
 [package]
 name = "xemanh2"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 
 [dependencies]
+arboard = "3"
 winit = "0.30"
 softbuffer = "0.4"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "bmp", "gif", "webp", "tga"] }

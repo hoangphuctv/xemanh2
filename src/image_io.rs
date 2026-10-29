@@ -1,5 +1,6 @@
 use image::AnimationDecoder;
 use std::{
+    borrow::Cow,
     fs::File,
     io::BufReader,
     path::Path,
@@ -9,6 +10,43 @@ use std::{
 use crate::{debug_log, App};
 
 impl App {
+    pub(crate) fn copy_image_to_clipboard(&self) {
+        let Some(image) = self.image.as_ref() else {
+            return;
+        };
+
+        let rgba = image.to_rgba8();
+        let width = rgba.width() as usize;
+        let height = rgba.height() as usize;
+
+        let mut clipboard = match arboard::Clipboard::new() {
+            Ok(clipboard) => clipboard,
+            Err(error) => {
+                if self.verbose {
+                    debug_log(format!("[DEBUG] clipboard open failed: {error}"));
+                }
+                return;
+            }
+        };
+
+        if let Err(error) = clipboard.set_image(arboard::ImageData {
+            width,
+            height,
+            bytes: Cow::Owned(rgba.into_raw()),
+        }) {
+            if self.verbose {
+                debug_log(format!("[DEBUG] clipboard copy failed: {error}"));
+            }
+            return;
+        }
+
+        if self.verbose {
+            debug_log(format!(
+                "[DEBUG] copied image to clipboard: {width}x{height}"
+            ));
+        }
+    }
+
     pub(crate) fn load_image(&mut self, path: &str) {
         if self.verbose {
             debug_log(format!("[DEBUG] loading image: {path}"));
